@@ -1,0 +1,60 @@
+name: Provision Terraform Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment Environment (dev, qa, uat, prod)"
+        required: true
+        default: "prod"
+      region:
+        description: "AWS Region"
+        required: true
+        default: "us-east-1"
+      action:
+        description: "Terraform action: apply (default) or destroy"
+        required: true
+        default: "apply"
+        # type: choice
+        # options:
+        # - apply
+        # - destroy
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: 🧱 Provision S3 + DynamoDB Backend
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        working-directory: ./provision-backend
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: ./provision-backend
+        run: terraform apply -auto-approve
+
+      - name: Terraform destroy
+        working-directory: ./provision-backend
+        run: terraform destroy -auto-approve
